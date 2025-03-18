@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  k6:
+    build: .
+    volumes:
+      - ./reports:/tests/reports
+      - ./screenshots:/tests/screenshots
+    environment:
+      - K6_BROWSER_ENABLED=true
+    command: run /tests/Tests/LoginTPM.js

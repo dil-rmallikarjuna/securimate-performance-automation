@@ -31,6 +31,8 @@ export const options = {
       options: {
         browser: {
           type: 'chromium',
+          headless: true,
+          args: ['--no-sandbox', '--disable-dev-shm-usage']
         },
       },
     },
