@@ -4,6 +4,18 @@ import { sleep } from 'k6';
 import { Trend } from 'k6/metrics';
 import { LoginPage } from '../Pages/LoginPage.js';  // Import the LoginPage class
 import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
+import { SharedArray } from 'k6/data';
+
+// Load config files
+const credentials = new SharedArray('credentials', function() {
+    const creds = JSON.parse(open('../config/credentials.json')).dev3;
+    return Array.isArray(creds) ? creds : [creds];
+});
+
+const urls = new SharedArray('urls', function() {
+    const url = JSON.parse(open('../config/urls.json')).dev3;
+    return Array.isArray(url) ? url : [url];
+});
 
 // Create custom metrics
 const navigationTime = new Trend('navigation_time');
@@ -41,7 +53,7 @@ export default async function () {
   try {
     // Measure initial navigation time
     const startTime = new Date().getTime();
-    await page.goto('https://dev3.steeleglobal.net/');
+    await page.goto(urls[0]);
     const loadTime = new Date().getTime() - startTime;
     navigationTime.add(loadTime);
     
@@ -51,10 +63,8 @@ export default async function () {
     // Measure login performance
     const loginStartTime = new Date().getTime();
     
-    // Enter credentials and log in
-    const email = 'mpatro@diligent.com';
-    const password = 'Milan.1217';
-    await loginPage.login(email, password);  // Use loginPage to handle login logic
+    // Use credentials from config
+    await loginPage.login(credentials[0].email, credentials[0].password);
 
     const loginDuration = new Date().getTime() - loginStartTime;
     loginTime.add(loginDuration);
