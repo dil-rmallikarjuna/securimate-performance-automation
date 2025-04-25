@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { CONFIG } from '../config/config.js';
+import { CONFIG, getTPrefrence } from '../config/config.js';
 
 // Load test scenarios
 export const options = {
@@ -9,7 +9,7 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 1,
       stages: [
-        { duration: '30s', target: 1 },
+        { duration: '10s', target: 1 },
         { duration: '10s', target: 1 }, 
         { duration: '10s', target: 1 }, 
       ],
@@ -21,7 +21,13 @@ let fetchedData = null;
 
 export function setup() {
   const getUrl = `${CONFIG.BASE_URL}/${getTPrefrence}`;
+  console.log(`Making GET request to: ${getUrl}`);
+  console.log(`Using headers: ${JSON.stringify(CONFIG.HEADERS)}`);
+  
   const response = http.get(getUrl, { headers: CONFIG.HEADERS });
+  
+  console.log(`Response status: ${response.status}`);
+  console.log(`Response body: ${response.body}`);
 
   check(response, {
     'GET status is 200': (r) => r.status === 200,
@@ -31,7 +37,7 @@ export function setup() {
     fetchedData = response.json(); 
     console.log(`Fetched Profile Data: ${JSON.stringify(fetchedData)}`);
   } else {
-    console.error(`Failed to fetch data: ${response.status}`);
+    console.error(`Failed to fetch data: ${response.status} - ${response.body}`);
   }
 
   return fetchedData; 

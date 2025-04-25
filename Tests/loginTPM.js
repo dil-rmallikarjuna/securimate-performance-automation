@@ -1,106 +1,140 @@
 import { browser } from 'k6/browser';
 import { check } from 'k6';
 import { sleep } from 'k6';
-import { Trend } from 'k6/metrics';
-import { LoginPage } from '../Pages/LoginPage.js';  // Import the LoginPage class
-import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
-import { SharedArray } from 'k6/data';
+import { LoginPage } from '../pages/LoginPage.js';
+import { ConfigManager } from '../utils/ConfigManager.js';
+import { TestReporter } from '../utils/TestReporter.js';
+import { AuthManager } from '../utils/AuthManager.js';
 
-// Load config files
-const credentials = new SharedArray('credentials', function() {
-    const creds = JSON.parse(open('../config/credentials.json')).dev3;
-    return Array.isArray(creds) ? creds : [creds];
+const configManager = ConfigManager.getInstance();
+const reporter = new TestReporter();
+const authManager = AuthManager.getInstance();
+
+export const options = configManager.getTestOptions({
+    thresholds: {
+        'login_time': ['p(95)<5000'],
+        'errors': ['rate<0.1'],
+        'successful_requests': ['rate>0.9']
+    }
 });
 
-const urls = new SharedArray('urls', function() {
-    const url = JSON.parse(open('../config/urls.json')).dev3;
-    return Array.isArray(url) ? url : [url];
-});
-
-// Create custom metrics
-const navigationTime = new Trend('navigation_time');
-const loginTime = new Trend('login_time');
-const pageLoadTime = new Trend('page_load_time');
-
-export const options = {
-  scenarios: {
-    ui: {
-      executor: 'shared-iterations',
-      vus: 5,
-      iterations: 5,
-      options: {
-        browser: {
-          type: 'chromium',
-          headless: true,
-          args: ['--no-sandbox', '--disable-dev-shm-usage']
-        },
-      },
-    },
-  },
-  thresholds: {
-    checks: ['rate==1.0'],
-    'login_time': ['p(95)<5000'], // 95% of logins should be under 5 seconds
-  },
-};
+async function logTokenInfo(page) {
+    const cookies = await page.context().cookies();
+    const token = await page.evaluate(() => {
+        const tokenElement = document.querySelector('input[name="token"]');
+        return tokenElement ? tokenElement.value : 'Not found';
+    });
+    
+    console.log('Token Information:');
+    console.log('-----------------');
+    console.log('Token:', token);
+    console.log('Cookies:', cookies.map(c => `${c.name}=${c.value.substring(0, 10)}...`).join(', '));
+    console.log('-----------------');
+}
 
 export default async function () {
-  const context = await browser.newContext({
-    ignoreHTTPSErrors: true,
-    userAgent: 'K6 Performance Test Browser',
-  });
-  
-  const page = await context.newPage();
-  const loginPage = new LoginPage(page);  // Create an instance of the LoginPage class
-
-  try {
-    // Measure initial navigation time
-    const startTime = new Date().getTime();
-    await page.goto(urls[0]);
-    const loadTime = new Date().getTime() - startTime;
-    navigationTime.add(loadTime);
+    console.log('Starting test execution...');
     
-    console.log(`Page loaded in ${loadTime}ms`);
-    await page.screenshot({ path: 'screenshots/screenshot.png' });
-
-    // Measure login performance
-    const loginStartTime = new Date().getTime();
-    
-    // Use credentials from config
-    await loginPage.login(credentials[0].email, credentials[0].password);
-
-    const loginDuration = new Date().getTime() - loginStartTime;
-    loginTime.add(loginDuration);
-    
-    console.log(`Login completed in ${loginDuration}ms`);
-    console.log('Successfully logged in');
-
-    // Wait for dashboard to fully load
-    sleep(5);
-    await page.screenshot({ path: 'screenshots/screenshot3.png' });
-
-    // Verify login success by checking the page title
-    const expectedTitle = 'Third-Party Manager';
-    const pageTitle = await page.title();
-    console.log(`Page title: "${pageTitle}"`);
-    
-    check(pageTitle, {
-      'Page title is "Third-Party Manager"': (title) => title === expectedTitle,
+    const context = await browser.newContext({
+        ignoreHTTPSErrors: true,
+        userAgent: 'K6 Performance Test Browser',
     });
-
-    // Measure overall page load performance
-    const totalTime = new Date().getTime() - startTime;
-    pageLoadTime.add(totalTime);
-    console.log(`Total operation completed in ${totalTime}ms`);
     
-  } catch (error) {
-    console.error('Test failed:', error);
-  } finally {
-    await context.close();
-  }
+    const page = await context.newPage();
+    const loginPage = new LoginPage(page);
+
+    try {
+        // Get base URL for login
+        const baseUrl = configManager.getBaseUrl();
+        console.log(`Navigating to base URL: ${baseUrl}`);
+
+        // Measure initial navigation
+        const startTime = new Date().getTime();
+        const response = await loginPage.navigate(baseUrl);
+        const loadTime = new Date().getTime() - startTime;
+        
+        reporter.addNavigationTime(loadTime);
+        reporter.incrementRequestCount();
+        
+        check(response, {
+            'Navigation successful': (r) => r.status() === 200
+        }) ? reporter.addSuccess() : reporter.addError();
+
+        // Take initial screenshot
+        await loginPage.takeScreenshot('login_page');
+
+        // Get credentials
+        const credentials = configManager.getCredentials();
+        console.log('Attempting login with credentials...');
+
+        // Measure login performance
+        const loginStartTime = new Date().getTime();
+        const loginSuccess = await loginPage.login(credentials.email, credentials.password);
+        const loginDuration = new Date().getTime() - loginStartTime;
+        
+        reporter.addLoginTime(loginDuration);
+        reporter.incrementRequestCount();
+        
+        check(loginSuccess, {
+            'Login successful': (success) => success === true
+        }) ? reporter.addSuccess() : reporter.addError();
+
+        // Update authentication tokens after successful login
+        console.log('Updating authentication tokens...');
+        const authUpdateSuccess = await authManager.updateAuthTokens(page);
+        check(authUpdateSuccess, {
+            'Auth tokens updated': (success) => success === true
+        }) ? reporter.addSuccess() : reporter.addError();
+
+        // Wait for dashboard and take screenshot
+        console.log('Waiting for dashboard...');
+        await sleep(5);
+        await loginPage.takeScreenshot('dashboard_page');
+
+        // After successful login, click Add Third Party button
+        console.log('Looking for Add Third Party button...');
+        await loginPage.clickAddThirdParty();
+
+        // Wait for network idle after button click
+        await page.waitForLoadState('networkidle', { timeout: 10000 });
+
+        // Log the current state
+        console.log('Current URL:', page.url());
+        console.log('Page title:', await page.title());
+
+        // Update auth tokens and log token info
+        console.log('Attempting to update auth tokens...');
+        await authManager.updateAdd3pAuth(page);
+        await logTokenInfo(page);
+
+        // Verify login success
+        const pageTitle = await page.title();
+        const expectedTitle = 'Third-Party Manager';
+        
+        check(pageTitle, {
+            'Page title is correct': (title) => title === expectedTitle
+        }) ? reporter.addSuccess() : reporter.addError();
+
+        // Measure overall performance
+        const totalTime = new Date().getTime() - startTime;
+        reporter.addPageLoadTime(totalTime);
+
+        // Get and log performance metrics
+        const metrics = await loginPage.getPerformanceMetrics();
+        console.log('Performance Metrics:', metrics);
+        
+        // Log current authentication tokens
+        const currentTokens = authManager.getCurrentTokens();
+        console.log('Current Authentication Tokens:', currentTokens);
+        
+    } catch (error) {
+        console.error('Test failed:', error);
+        reporter.addError();
+    } finally {
+        await context.close();
+    }
 }
 
 export function handleSummary(data) {
-  return {
-    "./reports/login-test.html": htmlReport(data),
-  };
+    return reporter.generateReport(data);
 }
