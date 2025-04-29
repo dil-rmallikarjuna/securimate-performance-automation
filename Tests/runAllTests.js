@@ -1,6 +1,5 @@
 import { browser } from 'k6/browser';
 import { check } from 'k6';
-//import { sleep } from 'k6';
 import { LoginPage } from '../Pages/LoginPage.js';
 
 const users = [
@@ -9,18 +8,8 @@ const users = [
 ];
 
 export const options = {
-    scenarios: {
-        ui: {
-            executor: 'shared-iterations',
-            vus: 2,
-            iterations: 2,
-            options: {
-                browser: {
-                    type: 'chromium',
-                },
-            },
-        },
-    },
+    vus: users.length,
+    iterations: users.length,
 };
 
 export default async function () {
@@ -34,6 +23,7 @@ export default async function () {
     const page = await context.newPage();
     const loginPage = new LoginPage(page);
 
+    // Example login flow
     await page.goto('https://dev3.steeleglobal.net/');
     await loginPage.login(user.email, user.password);
 
