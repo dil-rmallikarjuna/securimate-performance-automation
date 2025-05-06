@@ -1,19 +1,30 @@
 import { browser } from 'k6/browser';
 import { check } from 'k6';
-import { LoginPage } from '../pages/LoginPage.js';
+import { LoginPage } from '../Pages/LoginPage.js';
 
+// Read credentials from environment variables
 const users = [
-    { email: "mpatro@diligent.com", password: "Welcome@1234" },
-    { email: "najha@diligent.com", password: "Welcome@1234" }
+    { email: __ENV.USER1_EMAIL, password: __ENV.USER1_PASSWORD },
+    { email: __ENV.USER2_EMAIL, password: __ENV.USER2_PASSWORD }
 ];
 
 export const options = {
-    vus: users.length,
-    iterations: users.length,
+    scenarios: {
+        ui: {
+            executor: 'shared-iterations',
+            vus: users.length,
+            iterations: users.length,
+            options: {
+                browser: {
+                    type: 'chromium',
+                },
+            },
+        },
+    },
 };
 
 export default async function () {
-    const user = users[__VU - 1]; // Each VU gets a unique user
+    const user = users[__VU - 1];
 
     const context = await browser.newContext({
         ignoreHTTPSErrors: true,
@@ -23,7 +34,6 @@ export default async function () {
     const page = await context.newPage();
     const loginPage = new LoginPage(page);
 
-    // Example login flow
     await page.goto('https://dev3.steeleglobal.net/');
     await loginPage.login(user.email, user.password);
 
