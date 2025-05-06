@@ -1,6 +1,6 @@
 import { browser } from 'k6/browser';
 import { check } from 'k6';
-import { LoginPage } from '../Pages/LoginPage.js';
+import { LoginPage } from '../pages/LoginPage.js';
 
 const users = [
     { email: "mpatro@diligent.com", password: "Welcome@1234" },
