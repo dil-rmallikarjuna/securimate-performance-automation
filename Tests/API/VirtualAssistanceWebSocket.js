@@ -3,7 +3,7 @@ import ws from 'k6/ws';
 import { check, sleep, fail } from 'k6';
 import { Trend, Counter } from 'k6/metrics';
 import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
-import { token2, selectedThirdParty } from '../config/config.js';
+import { token2, selectedThirdParty } from '../../config/config.js'; // Import token and test data
 
 // Metrics with tags
 const wsResponseTime = new Trend('ws_response_time');

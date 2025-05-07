@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import { check } from 'k6';
-import { CONFIG } from '../config//config.js';
+import { CONFIG } from '../../config/config.js'; // Import token and test data
 
 export default function () {
   const url = `${CONFIG.BASE_URL}/ZP3P-1740494125`;

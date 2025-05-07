@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { CONFIG, getTPrefrence } from '../config/config.js';
+import { CONFIG, getTPrefrence } from 'C:/Users/najha/securimate-performance-automation/config/config.js'; // Import token and test data
 
 // Load test scenarios
 export const options = {
