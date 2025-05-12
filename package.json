@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "API_CaseBillingUnitPurchaseOrder": "dotenv -e .env -- k6 run Tests/API/API_CaseBillingUnitPurchaseOrder.js",
+    "ThirdPartyCreationAPI": "dotenv -e .env -- k6 run Tests/API/ThirdPartyCreationAPI.js",
+    "ThirdPartyGetAPI": "dotenv -e .env -- k6 run Tests/API/ThirdPartyGetAPI.js",
+    "VirtualAssistanceWebSocket": "dotenv -e .env -- k6 run Tests/API/VirtualAssistanceWebSocket.js"
   },
   "repository": {
     "type": "git",

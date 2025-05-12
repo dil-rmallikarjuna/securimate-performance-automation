@@ -1,31 +1,42 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { CONFIG, getTPrefrence } from 'C:/Users/najha/securimate-performance-automation/config/config.js'; // Import token and test data
+
+// All config and test data loaded from environment variables
+const BASE_URL = __ENV.BASE_URL || '';
+const AUTH_TOKEN = __ENV.AUTH_TOKEN || '';
+const X_IDENT = __ENV.X_IDENT || '';
+const TP_REFERENCE = __ENV.TP_REFERENCE || '';
 
 // Load test scenarios
 export const options = {
   scenarios: {
     load_test: {
       executor: 'ramping-vus',
-      startVUs: 1,
+      startVUs: Number(__ENV.START_VUS) || 1,
       stages: [
-        { duration: '10s', target: 1 },
-        { duration: '10s', target: 1 }, 
-        { duration: '10s', target: 1 }, 
+        { duration: '10s', target: Number(__ENV.STAGE1_TARGET) || 1 },
+        { duration: '10s', target: Number(__ENV.STAGE2_TARGET) || 1 },
+        { duration: '10s', target: Number(__ENV.STAGE3_TARGET) || 1 },
       ],
     },
   },
 };
 
-let fetchedData = null; 
+let fetchedData = null;
 
 export function setup() {
-  const getUrl = `${CONFIG.BASE_URL}/${getTPrefrence}`;
+  const getUrl = `${BASE_URL}/${TP_REFERENCE}`;
+  const headers = {
+    'Accept': 'application/json',
+    'Authorization': AUTH_TOKEN,
+    'X-Ident': X_IDENT,
+  };
+
   console.log(`Making GET request to: ${getUrl}`);
-  console.log(`Using headers: ${JSON.stringify(CONFIG.HEADERS)}`);
-  
-  const response = http.get(getUrl, { headers: CONFIG.HEADERS });
-  
+  console.log(`Using headers: ${JSON.stringify(headers)}`);
+
+  const response = http.get(getUrl, { headers });
+
   console.log(`Response status: ${response.status}`);
   console.log(`Response body: ${response.body}`);
 
@@ -34,13 +45,13 @@ export function setup() {
   });
 
   if (response.status === 200) {
-    fetchedData = response.json(); 
+    fetchedData = response.json();
     console.log(`Fetched Profile Data: ${JSON.stringify(fetchedData)}`);
   } else {
     console.error(`Failed to fetch data: ${response.status} - ${response.body}`);
   }
 
-  return fetchedData; 
+  return fetchedData;
 }
 
 export default function (data) {
@@ -49,13 +60,15 @@ export default function (data) {
     return;
   }
 
-  const url = CONFIG.BASE_URL;
-  
+  const url = BASE_URL;
+
   const payload = `status=${data.status}&approvalStatus=${data.approvalStatus}&recordType=${data.recordType}&officialName=${data.officialName}_Copy&internalOwnerID=${data.internalOwnerID}&regionID=${data.regionID}&typeID=${data.typeID}&categoryID=${data.categoryID}&countryCode=${data.countryCode}`;
 
   const params = {
     headers: {
-      ...CONFIG.HEADERS,
+      'Accept': 'application/json',
+      'Authorization': AUTH_TOKEN,
+      'X-Ident': X_IDENT,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
   };
@@ -68,5 +81,5 @@ export default function (data) {
 
   console.log(`Created Profile: ${response.body}`);
 
-  sleep(1); 
+  sleep(1);
 }
