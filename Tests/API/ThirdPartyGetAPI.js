@@ -1,11 +1,22 @@
 import http from 'k6/http';
 import { check } from 'k6';
-import { CONFIG } from '../../config/config.js'; // Import token and test data
+
+// All config and test data loaded from environment variables
+const BASE_URL = __ENV.BASE_URL || '';
+const AUTH_TOKEN = __ENV.AUTH_TOKEN || '';
+const X_IDENT = __ENV.X_IDENT || '';
+const TP_REFERENCE = __ENV.TP_REFERENCE || '';
 
 export default function () {
-  const url = `${CONFIG.BASE_URL}/ZP3P-1740494125`;
-  
-  const response = http.get(url, { headers: CONFIG.HEADERS });
+  const url = `${BASE_URL}/${TP_REFERENCE}`;
+
+  const headers = {
+    'Accept': 'application/json',
+    'Authorization': AUTH_TOKEN,
+    'X-Ident': X_IDENT,
+  };
+
+  const response = http.get(url, { headers });
 
   check(response, {
     'is status 200': (r) => r.status === 200,
