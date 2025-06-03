@@ -1,10 +1,11 @@
 import { browser } from 'k6/browser';
 import { check } from 'k6';
 import { sleep } from 'k6';
-import { LoginPage } from '../pages/LoginPage.js';
-import { ConfigManager } from '../utils/ConfigManager.js';
-import { TestReporter } from '../utils/TestReporter.js';
-import { AuthManager } from '../utils/AuthManager.js';
+import { LoginPage } from '../../pages/LoginPage.js';
+import { ConfigManager } from '../../utils/ConfigManager.js';
+import { TestReporter } from '../../utils/TestReporter.js';
+import { AuthManager } from '../../utils/AuthManager.js';
+
 
 const configManager = ConfigManager.getInstance();
 const reporter = new TestReporter();

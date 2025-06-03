@@ -1,24 +1,22 @@
+// All values are now loaded from environment variables
+export const token2 = __ENV.TOKEN2 || '';
 
-//Add login token here
-export const token2 = '';
-
-//Test Data for Virtual assistance websocket
+// Test Data for Virtual assistance websocket
 export const selectedThirdParty = {
-    companyName: "ABC Carpet and Beverages",
-    id: "1280",
-    tpNum: "ZP3P-01734",
-     prompt: "Are there incomplete DDQ invites or forms for this third party profile",
-
+    companyName: __ENV.COMPANY_NAME || '',
+    id: __ENV.TP_ID || '',
+    tpNum: __ENV.TP_NUM || '',
+    prompt: __ENV.PROMPT || '',
 };
-export const CONFIG = {
-    BASE_URL: 'https://api-staging.steeleglobal.net/rest/thirdparty/profile',
-    AUTH_TOKEN: 'Bearer tokenHere',
-    HEADERS: {
-      'Accept': 'application/json',
-      'Authorization': 'Bearer tokenHere',
-      'X-Ident': 'swagger-ui',
-    },
-  };
-  export const getTPrefrence = 'ZP3P-01395';
 
-  
+export const CONFIG = {
+    BASE_URL: __ENV.BASE_URL || '',
+    AUTH_TOKEN: __ENV.AUTH_TOKEN || '',
+    HEADERS: {
+        'Accept': 'application/json',
+        'Authorization': __ENV.AUTH_TOKEN || '',
+        'X-Ident': __ENV.X_IDENT || '',
+    },
+};
+
+export const getTPrefrence = __ENV.TP_REFERENCE || '';
