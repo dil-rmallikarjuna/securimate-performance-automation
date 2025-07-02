@@ -2,5 +2,11 @@
     "dev3": {
         "baseUrl": "https://dev3.steeleglobal.net/",
         "apiUrl": "https://api-dev3.steeleglobal.net/rest/thirdparty/profile"
+    },
+    "staging": {
+        "baseUrl": "https://api-staging.steeleglobal.net/rest/thirdparty/profile",
+        "tpReference": "ZP3P-01734",
+        "authToken": "your_auth_token",
+        "xIdent": "swagger-ui"
     }
 }
