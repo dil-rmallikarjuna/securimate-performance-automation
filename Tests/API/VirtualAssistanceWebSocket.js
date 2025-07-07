@@ -101,3 +101,9 @@ export default function () {
         sleep(1); 
     });
 }
+export function handleSummary(data) {
+  return {
+    "Tests/reports/VirtualAssistantWebsoket.html": htmlReport(data),
+    stdout: textSummary(data, { indent: " ", enableColors: true }), // this line is optional, CLI summary is shown by default
+  };
+}

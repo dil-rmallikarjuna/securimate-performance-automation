@@ -1,6 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { CONFIG, getTPrefrence } from 'C:/Users/najha/securimate-performance-automation/config/config.js'; // Import token and test data
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
 
 // Load test scenarios
 export const options = {
@@ -69,4 +70,10 @@ export default function (data) {
   console.log(`Created Profile: ${response.body}`);
 
   sleep(1); 
+}
+export function handleSummary(data) {
+  return {
+    "Tests/reports/ThirdPartyCreationAPI.html": htmlReport(data),
+    stdout: textSummary(data, { indent: " ", enableColors: true }), 
+  };
 }

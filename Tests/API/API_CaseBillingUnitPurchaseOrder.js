@@ -120,6 +120,7 @@ export function handleSummary(data) {
     }
 
     return {
-        './reports/CaseBillingUnitPurchase.html': htmlReport(data), // Generate HTML report
+        "Tests/reports/CaseBillingWebsoket.html": htmlReport(data),
+        stdout: textSummary(data, { indent: " ", enableColors: true }), 
     };
 }
