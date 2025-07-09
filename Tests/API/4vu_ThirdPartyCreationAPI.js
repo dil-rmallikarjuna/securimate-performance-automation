@@ -1,11 +1,14 @@
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { CONFIG, getTPrefrence } from 'C:/Users/najha/securimate-performance-automation/config/config.js';
+import http from "k6/http";
+import { check, sleep } from "k6";
+import {
+  CONFIG,
+  getTPrefrence,
+} from "C:/Users/najha/securimate-performance-automation/config/config.js";
 import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
 
 // Test configuration: 4 VUs (users), each doing 4 iterations
 export const options = {
-  vus: 4,           
+  vus: 4,
   iterations: 16,
 };
 
@@ -22,14 +25,16 @@ export function setup() {
   console.log(`Response body: ${response.body}`);
 
   check(response, {
-    'GET status is 200': (r) => r.status === 200,
+    "GET status is 200": (r) => r.status === 200,
   });
 
   if (response.status === 200) {
     fetchedData = response.json();
     console.log(`Fetched Profile Data: ${JSON.stringify(fetchedData)}`);
   } else {
-    console.error(`Failed to fetch data: ${response.status} - ${response.body}`);
+    console.error(
+      `Failed to fetch data: ${response.status} - ${response.body}`
+    );
   }
 
   return fetchedData;
@@ -37,7 +42,7 @@ export function setup() {
 
 export default function (data) {
   if (!data) {
-    console.error('No data received from GET request. Skipping POST request.');
+    console.error("No data received from GET request. Skipping POST request.");
     return;
   }
 
@@ -48,14 +53,14 @@ export default function (data) {
   const params = {
     headers: {
       ...CONFIG.HEADERS,
-      'Content-Type': 'application/x-www-form-urlencoded',
+      "Content-Type": "application/x-www-form-urlencoded",
     },
   };
 
   const response = http.post(url, payload, params);
 
   check(response, {
-    'POST status is 200 or 201': (r) => r.status === 200 || r.status === 201,
+    "POST status is 200 or 201": (r) => r.status === 200 || r.status === 201,
   });
 
   console.log(`Created Profile: ${response.body}`);
@@ -65,6 +70,6 @@ export default function (data) {
 export function handleSummary(data) {
   return {
     "Tests/reports/4vu_ThirdPartyCreationAPI.html": htmlReport(data),
-    stdout: textSummary(data, { indent: " ", enableColors: true }), 
+    stdout: textSummary(data, { indent: " ", enableColors: true }),
   };
 }
