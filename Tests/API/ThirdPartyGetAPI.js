@@ -1,5 +1,6 @@
 import http from 'k6/http';
 import { check } from 'k6';
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
 
 // All config and test data loaded from environment variables
 const BASE_URL = __ENV.BASE_URL || '';
@@ -24,4 +25,10 @@ export default function () {
   });
 
   console.log(`Response: ${response.body}`);
+}
+export function handleSummary(data) {
+  return {
+    "Tests/reports/ThirdPartyGetAPI.html": htmlReport(data),
+    stdout: textSummary(data, { indent: " ", enableColors: true }), 
+  };
 }
