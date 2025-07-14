@@ -4,8 +4,17 @@ import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporte
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.1/index.js";
 
 export let options = {
-  vus: 1,
-  iterations: 1,
+  stages: [
+    { duration: "30s", target: 50 }, // ramp up to 50 VUs over 30s
+    { duration: "1m", target: 100 }, // ramp up to 100 VUs over 1m
+    { duration: "2m", target: 100 }, // stay at 100 VUs for 2m
+    { duration: "30s", target: 0 }, // ramp down to 0 VUs over 30s
+  ],
+  thresholds: {
+    http_req_duration: ["p(95)<1000"],
+    http_req_failed: ["rate<0.01"],
+    checks: ["rate>0.99"],
+  },
 };
 
 export default function () {
@@ -30,8 +39,8 @@ export default function () {
 }
 
 export function handleSummary(data) {
-  return {
-    "Tests/reports/ddqInstance.html": htmlReport(data),
-    stdout: textSummary(data, { indent: " ", enableColors: true }),
-  };
+    return {
+        "Tests/reports/list_engagement.html": htmlReport(data),
+        stdout: textSummary(data, { indent: " ", enableColors: true }),
+    };
 }
