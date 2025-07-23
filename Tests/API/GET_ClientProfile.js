@@ -25,9 +25,9 @@ export default function () {
 
   sleep(1);
 }
-
 export function handleSummary(data) {
-  return {
-    "reports/clientProfile.html": htmlReport(data),
-  };
+return {
+"Tests/reports/ThirdPartyCreationAPI.html": htmlReport(data),
+stdout: textSummary(data, { indent: " ", enableColors: true }),
+};
 }
