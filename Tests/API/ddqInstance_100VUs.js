@@ -2,13 +2,13 @@ import http from "k6/http";
 import { check } from "k6";
 import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.1/index.js";
-
+import { config } from "../../config/config.js"; // Adjust the path as necessary
 export let options = {
   stages: [
-    { duration: "30s", target: 50 }, // ramp up to 50 VUs over 30s
-    { duration: "1m", target: 100 }, // ramp up to 100 VUs over 1m
-    { duration: "2m", target: 100 }, // stay at 100 VUs for 2m
-    { duration: "30s", target: 0 }, // ramp down to 0 VUs over 30s
+    { duration: "30s", target: 50 },
+    { duration: "1m", target: 100 },
+    { duration: "2m", target: 100 },
+    { duration: "30s", target: 0 },
   ],
   thresholds: {
     http_req_duration: ["p(95)<1000"],
@@ -18,11 +18,11 @@ export let options = {
 };
 
 export default function () {
-  const url = "https://api-dev3.steeleglobal.net/rest/ddq/intakeFormInstances";
+  const url = `${config.BASE_URL}/rest/ddq/intakeFormInstances`;
   const headers = {
     Accept: "application/json",
-    Authorization: "Bearer b857ecdab4c384af34fcc0fbfccea6fb0c08ad6f",
-    "X-Ident": "swagger-ui",
+    Authorization: `Bearer ${config.AUTH_TOKEN}`,
+    "X-Ident": config.X_IDENT,
   };
 
   const response = http.get(url, { headers });
@@ -39,8 +39,8 @@ export default function () {
 }
 
 export function handleSummary(data) {
-    return {
-        "Tests/reports/list_engagement.html": htmlReport(data),
-        stdout: textSummary(data, { indent: " ", enableColors: true }),
-    };
+  return {
+    "Tests/reports/list_engagement.html": htmlReport(data),
+    stdout: textSummary(data, { indent: " ", enableColors: true }),
+  };
 }
