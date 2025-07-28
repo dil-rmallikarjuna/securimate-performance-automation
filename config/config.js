@@ -23,7 +23,7 @@ export const CONFIG = {
 
   export const config = {
   BASE_URL: "https://api-dev3.steeleglobal.net",
-  AUTH_TOKEN: "b857ecdab4c384af34fcc0fbfccea6fb0c08ad6f",
+  AUTH_TOKEN: "",
   X_IDENT: "swagger-ui", // Optional: change if needed
 };
 
