@@ -21,4 +21,10 @@ export const CONFIG = {
   };
   export const getTPrefrence = 'ZP3P-01395';
 
+  export const config = {
+  BASE_URL: "https://api-dev3.steeleglobal.net",
+  AUTH_TOKEN: "",
+  X_IDENT: "swagger-ui", // Optional: change if needed
+};
+
   
