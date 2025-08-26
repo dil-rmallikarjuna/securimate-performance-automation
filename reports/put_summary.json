@@ -1,0 +1,8 @@
+{
+  "kpis": {
+    "Avg Throughput (req/sec)": 3.82,
+    "Avg Response Time (ms)": 1090.04,
+    "P95 Latency (ms)": 1175.75,
+    "Error Rate (%)": 0
+  }
+}

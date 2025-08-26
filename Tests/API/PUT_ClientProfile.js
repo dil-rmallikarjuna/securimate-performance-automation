@@ -3,7 +3,7 @@ import { check, sleep } from "k6";
 import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.1/index.js";
 
-export let options = { vus: 1, iterations: 1 };
+export let options = { vus: 10, iterations: 20, summaryTrendStats: ['avg', 'p(95)'] };
 
 // Load environment variables from config file
 const envConfig = JSON.parse(open('../../config/clientProfile.env.json'));
@@ -103,8 +103,46 @@ export default function () {
 }
 
 export function handleSummary(data) {
+    const toNum = (v) => (v == null ? null : Number(v));
+    const durationSec = ((data.state?.testRunDurationMs ?? 0) / 1000) || 0;
+
+    const httpReqs = toNum(data.metrics.http_reqs?.values?.count) || 0;
+    const avgRespMs = toNum(data.metrics.http_req_duration?.values?.avg);
+    const p95Ms = toNum(data.metrics.http_req_duration?.values?.['p(95)']);
+    const failRate = toNum(data.metrics.http_req_failed?.values?.rate) || 0; // 0..1
+    const errRatePct = +(failRate * 100).toFixed(2);
+
+    const avgThroughput = durationSec ? +(httpReqs / durationSec).toFixed(2) : 0;
+
+    const kpis = {
+        'Avg Throughput (req/sec)': avgThroughput,
+        'Avg Response Time (ms)': avgRespMs != null ? +avgRespMs.toFixed(2) : null,
+        'P95 Latency (ms)': p95Ms != null ? +p95Ms.toFixed(2) : null,
+        'Error Rate (%)': errRatePct
+    };
+
+    const baseSummary = textSummary(data, { indent: " ", enableColors: true });
+    const kpiText =
+        `\nKPIs:\n` +
+        `  Avg Throughput (req/sec): ${kpis['Avg Throughput (req/sec)']}\n` +
+        `  Avg Response Time (ms):   ${kpis['Avg Response Time (ms)']}\n` +
+        `  P95 Latency (ms):         ${kpis['P95 Latency (ms)']}\n` +
+        `  Error Rate (%):           ${kpis['Error Rate (%)']}\n`;
+
+    const kpiHtml = `
+  <div style="margin:16px;padding:16px;border:1px solid #ddd;border-radius:6px">
+    <h2>KPIs</h2>
+    <ul style="line-height:1.8">
+      <li><strong>Avg Throughput (req/sec):</strong> ${kpis['Avg Throughput (req/sec)']}</li>
+      <li><strong>Avg Response Time (ms):</strong> ${kpis['Avg Response Time (ms)']}</li>
+      <li><strong>P95 Latency (ms):</strong> ${kpis['P95 Latency (ms)']}</li>
+      <li><strong>Error Rate (%):</strong> ${kpis['Error Rate (%)']}</li>
+    </ul>
+  </div>`;
+
     return {
-        "../../reports/PUT_ClientProfile.html": htmlReport(data),
-        stdout: textSummary(data, { indent: " ", enableColors: true }),
+        "../../reports/PUT_ClientProfile.html": kpiHtml + htmlReport(data),
+        "../../reports/put_summary.json": JSON.stringify({ kpis }, null, 2),
+        stdout: baseSummary + kpiText,
     };
 }

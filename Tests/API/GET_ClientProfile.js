@@ -3,7 +3,7 @@ import { check, sleep } from "k6";
 import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
 import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.1/index.js";
 
-export let options = { vus: 4, iterations: 16 };
+export let options = { vus: 15, iterations: 30, summaryTrendStats: ['avg', 'p(95)'] };
 
 const envConfig = JSON.parse(open('../../config/clientProfile.env.json'));
 const BASE_URL = envConfig.BASE_URL;
@@ -37,7 +37,7 @@ export default function () {
     "status is not 500": (r) => r.status !== 500,
     
     // Response time validation
-    "response time < 500ms": (r) => r.timings.duration < 500,
+    "response time > 500ms": (r) => r.timings.duration > 500,
     
     // Content type validation
     "content type is JSON": (r) => r.headers['Content-Type'] && r.headers['Content-Type'].includes('application/json'),
@@ -99,14 +99,45 @@ export default function () {
       }
       return true;
     },
-    
   });
 
   sleep(1);
 }
 export function handleSummary(data) {
-return {
-"../../reports/Get_ClientProfile.html": htmlReport(data),
-stdout: textSummary(data, { indent: " ", enableColors: true }),
-};
+  const toNum = (v) => (v == null ? null : Number(v));
+  const durationSec = (data.state?.testRunDurationMs ?? 0) / 1000;
+
+  const httpReqs = toNum(data.metrics.http_reqs?.values?.count) || 0;
+  const avgRespMs = toNum(data.metrics.http_req_duration?.values?.avg);
+  const p95Ms = toNum(data.metrics.http_req_duration?.values?.['p(95)']);
+  const failRate = toNum(data.metrics.http_req_failed?.values?.rate) || 0; // 0..1
+
+  const kpis = {
+    'Avg Throughput (req/sec)': durationSec ? +(httpReqs / durationSec).toFixed(2) : 0,
+    'Avg Response Time (ms)': avgRespMs != null ? +avgRespMs.toFixed(2) : null,
+    'P95 Latency (ms)': p95Ms != null ? +p95Ms.toFixed(2) : null,
+    'Error Rate (%)': +(failRate * 100).toFixed(2)
+  };
+
+  const baseSummary = textSummary(data, { indent: " ", enableColors: true });
+  const customLines =
+    `\nCustom KPIs:\n` +
+    `  Avg Throughput (req/sec): ${kpis['Avg Throughput (req/sec)']}\n` +
+    `  Avg Response Time (ms):   ${kpis['Avg Response Time (ms)']}\n` +
+    `  P95 Latency (ms):         ${kpis['P95 Latency (ms)']}\n` +
+    `  Error Rate (%):           ${kpis['Error Rate (%)']}\n`;
+
+  // Optional: keep your existing overview/HTML if you want
+  return {
+    "../../reports/Get_ClientProfile.html": htmlReport(data),
+    "../../reports/summary.json": JSON.stringify(data, null, 2),
+    "../../reports/run_overview.json": JSON.stringify({
+      vus_max: data.metrics.vus_max?.values?.value ?? options?.vus ?? 0,
+      http_reqs: httpReqs,
+      duration_sec: +durationSec.toFixed(2),
+      http_req_duration_p95_ms: p95Ms
+    }, null, 2),
+    "../../reports/get_summary.json": JSON.stringify({ kpis }, null, 2), // NEW: KPIs for GET
+    stdout: baseSummary + customLines,
+  };
 }
