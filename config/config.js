@@ -12,9 +12,11 @@ export const selectedThirdParty = {
 };
 export const CONFIG = {
     BASE_URL: 'https://api-staging.steeleglobal.net/rest/thirdparty/profile',
-    AUTH_TOKEN: 'Bearer tokenHere',
+    // Leave empty; provide at runtime via AUTH_TOKEN env var
+    AUTH_TOKEN: '',
     HEADERS: {
       'Accept': 'application/json',
+      // Placeholder; will be overridden by runtime token when provided
       'Authorization': 'Bearer tokenHere',
       'X-Ident': 'swagger-ui',
     },

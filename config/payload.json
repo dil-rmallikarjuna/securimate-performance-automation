@@ -1,0 +1,16 @@
+{
+  "baseUrl": "https://api-staging.steeleglobal.net/rest/thirdparty/profile",
+  "authToken": "819a191beb22b80d6a06f8101114369860de776d",
+  "xIdent": "swagger-ui",
+  "payload": {
+    "status": "active",
+    "approvalStatus": "approved",
+    "recordType": "entity",
+    "officialName": "Acme Inc",
+    "internalOwnerID": "123",
+    "regionID": "1",
+    "typeID": "2",
+    "categoryID": "3",
+    "countryCode": "US"
+  }
+}
