@@ -1,0 +1,12 @@
+{
+  "kpis": {
+    "Avg Throughput (req/sec)": 5.57,
+    "Avg Response Time (ms)": 1218.43,
+    "P95 Latency (ms)": 1271.58,
+    "Error Rate (%)": 0
+  },
+  "vus": {
+    "configured": 15,
+    "max_observed": 15
+  }
+}

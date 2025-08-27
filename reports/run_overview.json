@@ -1,0 +1,6 @@
+{
+  "vus_max": 15,
+  "http_reqs": 30,
+  "duration_sec": 4.31,
+  "http_req_duration_p95_ms": 805.2469
+}
