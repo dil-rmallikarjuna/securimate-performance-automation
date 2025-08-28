@@ -1,0 +1,16 @@
+{
+  "baseUrl": "https://api-stagingmysql.steeleglobal.net/rest/thirdparty/profile",
+  "authToken": "",
+  "xIdent": "swagger-ui",
+  "payload": {
+    "status": "active",
+    "approvalStatus": "pending",
+    "recordType": "Entity",
+    "officialName": "Test",
+    "internalOwnerID": 692,
+    "regionID": 1546,
+    "typeID": 109,
+    "categoryID": 274,
+    "countryCode": "US"
+  }
+}
