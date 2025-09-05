@@ -1,6 +1,6 @@
 {
   "baseUrl": "https://api-stagingmysql.steeleglobal.net/rest/thirdparty/profile",
-  "authToken": "",
+  "authToken": "8bd57f7e6e595aecab64810f8f93383c07695e49",
   "xIdent": "swagger-ui",
   "payload": {
     "status": "active",

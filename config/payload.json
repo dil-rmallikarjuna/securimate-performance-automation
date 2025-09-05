@@ -1,6 +1,6 @@
 {
   "baseUrl": "https://api-staging.steeleglobal.net/rest/thirdparty/profile",
-  "authToken": "819a191beb22b80d6a06f8101114369860de776d",
+  "authToken": "5ff7d9988aa74c7991f5bb0baa9d2461ec7b0191",
   "xIdent": "swagger-ui",
   "payload": {
     "status": "active",
