@@ -1,0 +1,56 @@
+# Environment variables and credentials
+.env
+config/.env
+k6-tests/config/.env
+*.env
+!.env.example
+!env-example.txt
+
+# Credentials
+config/credentials.json
+**/credentials.json
+
+# Reports (optional - remove these lines if you want to track reports)
+k6-tests/reports/**/*.html
+k6-tests/reports/**/*.json
+k6-tests/reports/**/*.csv
+reports/
+
+# Screenshots
+screenshots/
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+*.har
+
+# K6 binaries (use system k6 instead)
+Tests/API/k6
+Tests/API/k6-v*
+
+# Temporary files
+tmp/
+temp/
+*.tmp

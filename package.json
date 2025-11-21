@@ -1,24 +1,56 @@
 {
   "name": "securimate-performance-automation",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "Clean, maintainable K6 performance testing framework for Securimate application with modular architecture and best practices",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Use npm run k6:smoke, k6:load, etc. for specific test types\"",
+    "k6:smoke": "k6 run --env TEST_PROFILE=smoke tests/smoke/quick-smoke.test.js",
+    "k6:smoke:staging": "k6 run --env ENVIRONMENT=staging --env TEST_PROFILE=smoke tests/smoke/quick-smoke.test.js",
+    "k6:api:third-party": "k6 run --env TEST_PROFILE=load tests/api/third-party.test.js",
+    "k6:api:third-party:smoke": "k6 run --env TEST_PROFILE=smoke tests/api/third-party.test.js",
+    "k6:api:third-party:stress": "k6 run --env TEST_PROFILE=stress tests/api/third-party.test.js",
+    "k6:api:client-profile": "k6 run --env TEST_PROFILE=load tests/api/client-profile.test.js",
+    "k6:api:audit-logs": "k6 run tests/api/GET_audit-logs.test.js",
+    "k6:api:case-stages": "k6 run tests/api/GET_case-stages.test.js",
+    "k6:api:engagements": "k6 run tests/api/GET_engagements.test.js",
+    "k6:api:third-party-approval": "k6 run tests/api/GET_third-party-approval.test.js",
+    "k6:websocket:virtual-assistance": "k6 run tests/websocket/virtual-assistance.test.js",
+    "k6:websocket:case-billing": "k6 run tests/websocket/case-billing.test.js",
+    "k6:websocket:stress": "k6 run --env TEST_PROFILE=stress tests/websocket/virtual-assistance.test.js",
+    "k6:staging": "k6 run --env ENVIRONMENT=staging --env TEST_PROFILE=load tests/api/third-party.test.js",
+    "k6:production": "k6 run --env ENVIRONMENT=production --env TEST_PROFILE=smoke tests/smoke/quick-smoke.test.js",
+    "k6:help": "echo \"Available K6 test commands:\\n  npm run k6:smoke - Quick smoke test\\n  npm run k6:api:third-party - Third Party API load test\\n  npm run k6:api:client-profile - Client Profile API test\\n  npm run k6:websocket - Virtual Assistance WebSocket test\\n  npm run k6:staging - Run against staging\\n  npm run k6:production - Run against production (smoke only)\\n\\nNote: Set AUTH_TOKEN environment variable before running tests\\nExample: AUTH_TOKEN=your_token npm run k6:smoke\""
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dil-rmallikarjuna/securimate-performance-automation.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "performance",
+    "testing",
+    "k6",
+    "automation",
+    "load-testing",
+    "api-testing",
+    "ui-testing",
+    "securimate"
+  ],
+  "author": "Performance Team",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/dil-rmallikarjuna/securimate-performance-automation/issues"
   },
   "homepage": "https://github.com/dil-rmallikarjuna/securimate-performance-automation#readme",
   "dependencies": {
     "k6": "^0.0.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "k6": {
+    "version": ">=0.45.0"
   }
 }

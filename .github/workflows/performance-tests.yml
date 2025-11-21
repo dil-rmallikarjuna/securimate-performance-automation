@@ -1,0 +1,433 @@
+name: Performance Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      test_profile:
+        description: 'Test profile to run'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+          - spike
+          - soak
+      run_ui_tests:
+        description: 'Run UI tests'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  K6_VERSION: '0.47.0'
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.config.outputs.environment }}
+      test_profile: ${{ steps.config.outputs.test_profile }}
+      run_ui_tests: ${{ steps.config.outputs.run_ui_tests }}
+    steps:
+      - name: Set configuration
+        id: config
+        run: |
+          # Set defaults based on trigger
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "test_profile=${{ github.event.inputs.test_profile }}" >> $GITHUB_OUTPUT
+            echo "run_ui_tests=${{ github.event.inputs.run_ui_tests }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "test_profile=load" >> $GITHUB_OUTPUT
+            echo "run_ui_tests=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "test_profile=smoke" >> $GITHUB_OUTPUT
+            echo "run_ui_tests=false" >> $GITHUB_OUTPUT
+          else
+            echo "environment=development" >> $GITHUB_OUTPUT
+            echo "test_profile=smoke" >> $GITHUB_OUTPUT
+            echo "run_ui_tests=false" >> $GITHUB_OUTPUT
+          fi
+
+  api-tests:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test_type: [smoke, load]
+        exclude:
+          - test_type: load
+            # Only run load tests for specific profiles
+        include:
+          - test_type: ${{ needs.setup.outputs.test_profile }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install K6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Verify K6 installation
+        run: k6 version
+
+      - name: Setup test environment
+        run: |
+          npm ci
+          npm run setup
+          mkdir -p reports/html reports/json reports/junit reports/screenshots
+
+      - name: Create environment file
+        run: |
+          cat > .env << EOF
+          USER1_EMAIL=${{ secrets.TEST_USER1_EMAIL }}
+          USER1_PASSWORD=${{ secrets.TEST_USER1_PASSWORD }}
+          USER2_EMAIL=${{ secrets.TEST_USER2_EMAIL }}
+          USER2_PASSWORD=${{ secrets.TEST_USER2_PASSWORD }}
+          ADMIN_EMAIL=${{ secrets.TEST_ADMIN_EMAIL }}
+          ADMIN_PASSWORD=${{ secrets.TEST_ADMIN_PASSWORD }}
+          AUTH_TOKEN=${{ secrets.API_AUTH_TOKEN }}
+          API_KEY=${{ secrets.API_KEY }}
+          BEARER_TOKEN=${{ secrets.BEARER_TOKEN }}
+          ENVIRONMENT=${{ needs.setup.outputs.environment }}
+          TEST_PROFILE=${{ matrix.test_type }}
+          LOG_LEVEL=INFO
+          EOF
+
+      - name: Run API Tests - ${{ matrix.test_type }}
+        run: |
+          k6 run \
+            --env ENVIRONMENT=${{ needs.setup.outputs.environment }} \
+            --env TEST_PROFILE=${{ matrix.test_type }} \
+            --out json=reports/json/api-${{ matrix.test_type }}-results.json \
+            src/tests/examples/api-third-party-load-test.js
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-test-results-${{ matrix.test_type }}
+          path: |
+            reports/
+            logs/
+          retention-days: 30
+
+      - name: Parse test results
+        if: always()
+        run: |
+          if [ -f "reports/json/api-${{ matrix.test_type }}-results.json" ]; then
+            echo "## API Test Results - ${{ matrix.test_type }}" >> $GITHUB_STEP_SUMMARY
+            echo "### Summary" >> $GITHUB_STEP_SUMMARY
+            
+            # Extract key metrics using jq
+            TOTAL_REQUESTS=$(jq -r '.metrics.http_reqs.values.count // 0' reports/json/api-${{ matrix.test_type }}-results.json)
+            FAILED_REQUESTS=$(jq -r '.metrics.http_req_failed.values.count // 0' reports/json/api-${{ matrix.test_type }}-results.json)
+            AVG_DURATION=$(jq -r '.metrics.http_req_duration.values.avg // 0' reports/json/api-${{ matrix.test_type }}-results.json)
+            P95_DURATION=$(jq -r '.metrics.http_req_duration.values["p(95)"] // 0' reports/json/api-${{ matrix.test_type }}-results.json)
+            
+            echo "- **Total Requests**: $TOTAL_REQUESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Failed Requests**: $FAILED_REQUESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Average Duration**: ${AVG_DURATION}ms" >> $GITHUB_STEP_SUMMARY
+            echo "- **95th Percentile**: ${P95_DURATION}ms" >> $GITHUB_STEP_SUMMARY
+            
+            # Check if thresholds passed
+            CHECKS_PASSED=$(jq -r '.metrics.checks.values.passes // 0' reports/json/api-${{ matrix.test_type }}-results.json)
+            CHECKS_FAILED=$(jq -r '.metrics.checks.values.fails // 0' reports/json/api-${{ matrix.test_type }}-results.json)
+            
+            if [ "$CHECKS_FAILED" -gt 0 ]; then
+              echo "❌ **Some checks failed**: $CHECKS_FAILED/$((CHECKS_PASSED + CHECKS_FAILED))" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            else
+              echo "✅ **All checks passed**: $CHECKS_PASSED" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+  ui-tests:
+    needs: setup
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.run_ui_tests == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install K6 with browser support
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Install browser dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 \
+            libatk-bridge2.0-0 \
+            libdrm2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxrandr2 \
+            libgbm1 \
+            libxss1 \
+            libasound2 \
+            libatspi2.0-0 \
+            libgtk-3-0
+
+      - name: Setup test environment
+        run: |
+          npm ci
+          npm run setup
+          mkdir -p reports/html reports/json reports/junit reports/screenshots
+
+      - name: Create environment file
+        run: |
+          cat > .env << EOF
+          USER1_EMAIL=${{ secrets.TEST_USER1_EMAIL }}
+          USER1_PASSWORD=${{ secrets.TEST_USER1_PASSWORD }}
+          USER2_EMAIL=${{ secrets.TEST_USER2_EMAIL }}
+          USER2_PASSWORD=${{ secrets.TEST_USER2_PASSWORD }}
+          ADMIN_EMAIL=${{ secrets.TEST_ADMIN_EMAIL }}
+          ADMIN_PASSWORD=${{ secrets.TEST_ADMIN_PASSWORD }}
+          ENVIRONMENT=${{ needs.setup.outputs.environment }}
+          BROWSER_PROFILE=headless
+          LOG_LEVEL=INFO
+          EOF
+
+      - name: Run UI Tests
+        run: |
+          k6 run \
+            --env ENVIRONMENT=${{ needs.setup.outputs.environment }} \
+            --env BROWSER_PROFILE=headless \
+            --out json=reports/json/ui-results.json \
+            src/tests/examples/ui-login-performance-test.js
+
+      - name: Upload UI test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-test-results
+          path: |
+            reports/
+            logs/
+          retention-days: 30
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-test-screenshots
+          path: reports/screenshots/
+          retention-days: 7
+
+  docker-tests:
+    needs: setup
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t securimate-perf-tests .
+
+      - name: Test Docker image
+        run: |
+          # Create reports directory
+          mkdir -p reports
+          
+          # Run smoke test in container
+          docker run --rm \
+            -v $(pwd)/reports:/app/reports \
+            -e ENVIRONMENT=${{ needs.setup.outputs.environment }} \
+            -e TEST_PROFILE=smoke \
+            -e USER1_EMAIL=${{ secrets.TEST_USER1_EMAIL }} \
+            -e USER1_PASSWORD=${{ secrets.TEST_USER1_PASSWORD }} \
+            -e USER2_EMAIL=${{ secrets.TEST_USER2_EMAIL }} \
+            -e USER2_PASSWORD=${{ secrets.TEST_USER2_PASSWORD }} \
+            securimate-perf-tests
+
+      - name: Upload Docker test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-test-results
+          path: reports/
+          retention-days: 7
+
+  performance-analysis:
+    needs: [api-tests, ui-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install analysis tools
+        run: |
+          npm install -g jq
+
+      - name: Analyze performance results
+        run: |
+          echo "# Performance Test Analysis" >> analysis-report.md
+          echo "## Test Run Information" >> analysis-report.md
+          echo "- **Environment**: ${{ needs.setup.outputs.environment }}" >> analysis-report.md
+          echo "- **Test Profile**: ${{ needs.setup.outputs.test_profile }}" >> analysis-report.md
+          echo "- **Timestamp**: $(date -u)" >> analysis-report.md
+          echo "- **Commit**: ${{ github.sha }}" >> analysis-report.md
+          echo "" >> analysis-report.md
+          
+          # Analyze API test results
+          if [ -d "artifacts/api-test-results-smoke" ]; then
+            echo "## API Test Results" >> analysis-report.md
+            
+            for result_file in artifacts/api-test-results-*/reports/json/*.json; do
+              if [ -f "$result_file" ]; then
+                echo "### $(basename $result_file .json)" >> analysis-report.md
+                
+                # Extract and format metrics
+                TOTAL_REQUESTS=$(jq -r '.metrics.http_reqs.values.count // "N/A"' "$result_file")
+                FAILED_REQUESTS=$(jq -r '.metrics.http_req_failed.values.count // "N/A"' "$result_file")
+                AVG_DURATION=$(jq -r '.metrics.http_req_duration.values.avg // "N/A"' "$result_file")
+                P95_DURATION=$(jq -r '.metrics.http_req_duration.values["p(95)"] // "N/A"' "$result_file")
+                
+                echo "| Metric | Value |" >> analysis-report.md
+                echo "|--------|-------|" >> analysis-report.md
+                echo "| Total Requests | $TOTAL_REQUESTS |" >> analysis-report.md
+                echo "| Failed Requests | $FAILED_REQUESTS |" >> analysis-report.md
+                echo "| Average Duration | ${AVG_DURATION}ms |" >> analysis-report.md
+                echo "| 95th Percentile | ${P95_DURATION}ms |" >> analysis-report.md
+                echo "" >> analysis-report.md
+              fi
+            done
+          fi
+          
+          # Analyze UI test results
+          if [ -d "artifacts/ui-test-results" ]; then
+            echo "## UI Test Results" >> analysis-report.md
+            
+            if [ -f "artifacts/ui-test-results/reports/json/ui-results.json" ]; then
+              # Extract browser metrics
+              echo "### Browser Performance" >> analysis-report.md
+              echo "| Metric | Value |" >> analysis-report.md
+              echo "|--------|-------|" >> analysis-report.md
+              
+              # Add browser-specific metrics analysis here
+              echo "| Page Load Time | TBD |" >> analysis-report.md
+              echo "| First Contentful Paint | TBD |" >> analysis-report.md
+              echo "" >> analysis-report.md
+            fi
+          fi
+
+      - name: Upload analysis report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-analysis
+          path: analysis-report.md
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            try {
+              const report = fs.readFileSync('analysis-report.md', 'utf8');
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: report
+              });
+            } catch (error) {
+              console.log('Could not post comment:', error);
+            }
+
+  notify:
+    needs: [api-tests, ui-tests, docker-tests, performance-analysis]
+    runs-on: ubuntu-latest
+    if: always() && (github.event_name == 'schedule' || github.ref == 'refs/heads/main')
+    
+    steps:
+      - name: Determine overall status
+        id: status
+        run: |
+          if [ "${{ needs.api-tests.result }}" = "success" ] && \
+             [ "${{ needs.ui-tests.result }}" = "success" ] && \
+             [ "${{ needs.docker-tests.result }}" = "success" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=All performance tests passed ✅" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=Some performance tests failed ❌" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send notification
+        if: steps.status.outputs.status == 'failure'
+        run: |
+          echo "Performance tests failed. Notification would be sent here."
+          # Add your notification logic (Slack, email, etc.)
+          # Example:
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data '{"text":"${{ steps.status.outputs.message }}"}' \
+          #   ${{ secrets.SLACK_WEBHOOK_URL }}
+
+
